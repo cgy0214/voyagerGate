@@ -102,7 +102,7 @@ flowchart LR
 Download the latest release from [GitHub Releases](https://github.com/cgy0214/voyagerGate/releases) or [Gitee](https://gitee.com/boy_0214/voyagerGate).
 
 ### Three Steps to Get Started
-
+![输入图片说明](https://foruda.gitee.com/images/1787309673408391110/34c49bc0_1509614.png "3.png")
 1. **Create Environment** — Fill in environment name, registry address, remote gateway URL, and proxy port
 2. **Pull Services** — Click "Connect Registry" → "Pull Services", service list is imported automatically
 3. **Start Proxy** — Click start, point your client requests to `http://127.0.0.1:<proxy-port>`
