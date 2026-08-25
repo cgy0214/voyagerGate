@@ -6,17 +6,69 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
+
+	"golang.org/x/sys/windows/registry"
 )
 
-const Version = "v1.0.0"
+const Version = "v1.0.1"
 
-const versionURL = "https://raw.githubusercontent.com/cgy0214/voyagerGate/main/version.json"
+const versionURL = "https://raw.githubusercontent.com/cgy0214/voyagerGate/master/version.json"
+
+// 镜像回退：直连 GitHub 失败（如未开代理的国内网络）时依次尝试
+var versionMirrorURLs = []string{
+	"https://ghproxy.net/https://raw.githubusercontent.com/cgy0214/voyagerGate/master/version.json",
+	"https://gh-proxy.com/https://raw.githubusercontent.com/cgy0214/voyagerGate/master/version.json",
+}
+
+// httpClient 返回带系统代理与超时的 HTTP 客户端。
+// Go 默认不读 Windows 系统代理，这里显式探测注册表设置，
+// 保证系统代理用户无需额外配置即可访问 GitHub。
+func httpClient(timeout time.Duration) *http.Client {
+	transport := &http.Transport{
+		Proxy: func(req *http.Request) (*url.URL, error) {
+			if pu := proxyFromSystem(); pu != nil {
+				return pu, nil
+			}
+			return http.ProxyFromEnvironment(req)
+		},
+	}
+	return &http.Client{Timeout: timeout, Transport: transport}
+}
+
+// proxyFromSystem 读取 Windows 系统代理设置（仅 windows 生效）
+func proxyFromSystem() *url.URL {
+	if runtime.GOOS != "windows" {
+		return nil
+	}
+	key, err := registry.OpenKey(registry.CURRENT_USER, `Software\Microsoft\Windows\CurrentVersion\Internet Settings`, registry.QUERY_VALUE)
+	if err != nil {
+		return nil
+	}
+	defer key.Close()
+	enable, _, err := key.GetIntegerValue("ProxyEnable")
+	if err != nil || enable == 0 {
+		return nil
+	}
+	server, _, err := key.GetStringValue("ProxyServer")
+	if err != nil || server == "" {
+		return nil
+	}
+	if !strings.Contains(server, "://") {
+		server = "http://" + server
+	}
+	u, err := url.Parse(server)
+	if err != nil {
+		return nil
+	}
+	return u
+}
 
 // RemoteVersion 远程 version.json 结构
 type RemoteVersion struct {
@@ -50,16 +102,9 @@ func CheckUpdateDetail() *CheckUpdateResult {
 }
 
 func checkUpdateInternal() *CheckUpdateResult {
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Get(versionURL)
+	body, err := fetchVersionJSON()
 	if err != nil {
 		return &CheckUpdateResult{Message: "检查更新失败: 网络异常"}
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return &CheckUpdateResult{Message: "检查更新失败: 读取响应失败"}
 	}
 
 	var remote RemoteVersion
@@ -90,6 +135,32 @@ func checkUpdateInternal() *CheckUpdateResult {
 	}
 }
 
+// fetchVersionJSON 按主地址 → 镜像列表顺序拉取 version.json，任一成功即返回
+func fetchVersionJSON() ([]byte, error) {
+	urls := append([]string{versionURL}, versionMirrorURLs...)
+	client := httpClient(5 * time.Second)
+	var lastErr error
+	for _, u := range urls {
+		resp, err := client.Get(u)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		resp.Body.Close()
+		if readErr != nil {
+			lastErr = readErr
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+			continue
+		}
+		return body, nil
+	}
+	return nil, lastErr
+}
+
 func DownloadAndUpdate(downloadURL string) error {
 	exePath, err := os.Executable()
 	if err != nil {
@@ -100,8 +171,8 @@ func DownloadAndUpdate(downloadURL string) error {
 	// 确定下载文件名
 	tmpPath := exePath + ".tmp"
 
-	// 下载新版本
-	resp, err := http.Get(downloadURL)
+	// 下载新版本（走系统代理，避免直连 GitHub 被墙）
+	resp, err := httpClient(60 * time.Second).Get(downloadURL)
 	if err != nil {
 		return fmt.Errorf("下载失败: %v", err)
 	}

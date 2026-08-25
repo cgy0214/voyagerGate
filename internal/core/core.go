@@ -36,6 +36,7 @@ type Snapshot struct {
 	Envs     []*model.Environment `json:"envs"`
 	Current  string               `json:"current"`
 	Theme    string               `json:"theme"`
+	AllowLAN bool                 `json:"allowLan"`
 	Running  bool                 `json:"running"`
 	LocalIP  string               `json:"localIp"`
 	ReqCount int64                `json:"reqCount"`
@@ -75,6 +76,7 @@ type Core struct {
 	envs     []*model.Environment
 	current  string
 	theme    string
+	allowLAN bool
 	localIP  string
 	reqCount int64
 	avgMs    int
@@ -95,13 +97,14 @@ func NewCore() *Core {
 func NewCoreWithStore(st *config.Store) *Core {
 	f := st.Load()
 	c := &Core{
-		store:   st,
-		proxy:   proxy.New(),
-		proxies: make(map[string]*proxy.Engine),
-		envs:    f.Envs,
-		current: f.Current,
-		theme:   f.Theme,
-		logs:    []*model.LogEntry{},
+		store:    st,
+		proxy:    proxy.New(),
+		proxies:  make(map[string]*proxy.Engine),
+		envs:     f.Envs,
+		current:  f.Current,
+		theme:    f.Theme,
+		allowLAN: !f.LocalOnly,
+		logs:     []*model.LogEntry{},
 	}
 	if c.current == "" && len(c.envs) > 0 {
 		c.current = c.envs[0].Name
@@ -125,6 +128,7 @@ func NewCoreWithStore(st *config.Store) *Core {
 	}
 	for _, env := range c.envs {
 		e := proxy.New()
+		e.SetLAN(c.allowLAN)
 		e.SetLogFn(c.onRequest)
 		c.proxies[env.Name] = e
 	}
@@ -138,6 +142,7 @@ func (c *Core) currentProxyLocked() *proxy.Engine {
 		return e
 	}
 	e := proxy.New()
+	e.SetLAN(c.allowLAN)
 	e.SetLogFn(c.onRequest)
 	c.proxies[c.current] = e
 	return e
@@ -194,10 +199,11 @@ func (c *Core) cur() *model.Environment {
 // buildFile 由内存状态生成磁盘文件结构（假定 c.mu 已持有）
 func (c *Core) buildFile() *config.File {
 	return &config.File{
-		Version: config.Version,
-		Theme:   c.theme,
-		Current: c.current,
-		Envs:    c.envs,
+		Version:   config.Version,
+		Theme:     c.theme,
+		LocalOnly: !c.allowLAN,
+		Current:   c.current,
+		Envs:      c.envs,
 	}
 }
 
@@ -434,6 +440,7 @@ func (c *Core) Snapshot() *Snapshot {
 		Envs:     envs,
 		Current:  c.current,
 		Theme:    c.theme,
+		AllowLAN: c.allowLAN,
 		Running:  func() bool { e := c.cur(); return e != nil && e.Running }(),
 		LocalIP:  c.localIP,
 		ReqCount: c.reqCount,
@@ -694,6 +701,7 @@ func (c *Core) ResetConfig() error {
 	c.lastSync = ""
 	c.proxies = map[string]*proxy.Engine{}
 	c.proxies[env.Name] = proxy.New()
+	c.proxies[env.Name].SetLAN(c.allowLAN)
 	c.proxies[env.Name].SetLogFn(c.onRequest)
 	c.mu.Unlock()
 	c.applyWindowTheme()
@@ -1314,6 +1322,50 @@ func (c *Core) SetTheme(theme string) {
 	c.persist()
 	c.emitSnapshot()
 	c.applyWindowTheme()
+}
+
+// SetAllowLAN 设置是否允许局域网访问代理：
+//   - true  → 绑定 0.0.0.0（局域网设备可经本机代理转发）
+//   - false → 仅绑定 127.0.0.1（默认安全模式）
+//
+// 代理运行中则热重启监听使配置即时生效。
+func (c *Core) SetAllowLAN(on bool) error {
+	c.mu.Lock()
+	if c.allowLAN == on {
+		c.mu.Unlock()
+		return nil
+	}
+	c.allowLAN = on
+	env := c.cur()
+	var port int
+	var running bool
+	if env != nil {
+		port = env.Port
+		running = env.Running
+	}
+	c.mu.Unlock()
+
+	c.persist()
+	c.emitSnapshot()
+
+	if !running {
+		return nil
+	}
+	c.mu.Lock()
+	pe := c.currentProxyLocked()
+	pe.SetLAN(on)
+	c.mu.Unlock()
+	if err := pe.Restart(port); err != nil {
+		c.mu.Lock()
+		if env := c.cur(); env != nil {
+			env.Running = false
+		}
+		c.mu.Unlock()
+		c.stopTimers()
+		return fmt.Errorf("监听地址切换失败: %v", err)
+	}
+	c.emitSnapshot()
+	return nil
 }
 
 // PreviewYAML 生成当前环境 YAML 预览（密码/Token 脱敏）

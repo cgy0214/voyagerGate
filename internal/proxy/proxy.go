@@ -194,6 +194,7 @@ type Engine struct {
 	srv   *http.Server
 	ln    net.Listener
 	port  int
+	lan   bool // 是否绑定 0.0.0.0（允许局域网访问）；false 仅绑 127.0.0.1
 	logFn func(entry *model.LogEntry) // 每次请求完成的日志回调
 }
 
@@ -225,6 +226,23 @@ func (e *Engine) Port() int {
 	return e.port
 }
 
+// SetLAN 设置是否允许局域网访问（下次 Start/Restart 生效）
+func (e *Engine) SetLAN(on bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.lan = on
+}
+
+// bindHost 依据 LAN 开关返回监听地址（默认仅回环，安全优先）
+func (e *Engine) bindHost() string {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	if e.lan {
+		return "0.0.0.0:"
+	}
+	return "127.0.0.1:"
+}
+
 // Running 是否正在监听
 func (e *Engine) Running() bool {
 	e.mu.RLock()
@@ -241,7 +259,7 @@ func (e *Engine) Start(port int) error {
 	}
 	e.mu.Unlock()
 
-	ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
+	ln, err := net.Listen("tcp", e.bindHost()+strconv.Itoa(port))
 	if err != nil {
 		return err
 	}
