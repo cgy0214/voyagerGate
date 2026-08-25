@@ -50,10 +50,6 @@ export function DeleteService(arg1) {
   return window['go']['main']['App']['DeleteService'](arg1);
 }
 
-export function DownloadAndUpdate(arg1) {
-  return window['go']['main']['App']['DownloadAndUpdate'](arg1);
-}
-
 export function EditRule(arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
   return window['go']['main']['App']['EditRule'](arg1, arg2, arg3, arg4, arg5, arg6, arg7);
 }
@@ -102,6 +98,10 @@ export function RemoveEnvironment(arg1) {
   return window['go']['main']['App']['RemoveEnvironment'](arg1);
 }
 
+export function RenameEnvironment(arg1, arg2) {
+  return window['go']['main']['App']['RenameEnvironment'](arg1, arg2);
+}
+
 export function ReorderRules(arg1, arg2) {
   return window['go']['main']['App']['ReorderRules'](arg1, arg2);
 }
@@ -140,6 +140,10 @@ export function SetDefaultTarget(arg1, arg2) {
 
 export function SetGateway(arg1) {
   return window['go']['main']['App']['SetGateway'](arg1);
+}
+
+export function SetLang(arg1) {
+  return window['go']['main']['App']['SetLang'](arg1);
 }
 
 export function SetPort(arg1) {

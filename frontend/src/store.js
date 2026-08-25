@@ -2,6 +2,7 @@
 import { reactive } from 'vue'
 import { EventsOn } from '../wailsjs/runtime/runtime'
 import * as App from '../wailsjs/go/main/App'
+import { setLocale } from './i18n'
 
 export const state = reactive({
   snapshot: null,      // 后端全量快照
@@ -55,6 +56,8 @@ export async function init() {
   applySnapshot(await App.Snapshot())
   state.logs = state.snapshot?.logs || []
   state.version = await App.GetVersion()
+  // 以后端配置中的语言为准（config.yaml 持久化）
+  setLocale(state.snapshot?.lang || 'zh')
 }
 
 // toast 底部居中玻璃气泡：ok 成功（绿色描边 3s）/ err 失败（红色描边 5s）

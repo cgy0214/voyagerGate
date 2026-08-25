@@ -22,6 +22,7 @@ const (
 type File struct {
 	Version   string               `yaml:"version"`
 	Theme     string               `yaml:"theme"`
+	Lang      string               `yaml:"lang"`      // zh | en，UI 语言
 	LocalOnly bool                 `yaml:"localOnly"` // true = 仅绑 127.0.0.1；false/缺省 = 绑 0.0.0.0（历史行为）
 	Current   string               `yaml:"current"`
 	Envs      []*model.Environment `yaml:"environments"`
@@ -71,6 +72,9 @@ func (s *Store) Load() *File {
 	}
 	if disk.Theme == "" {
 		disk.Theme = "dark"
+	}
+	if disk.Lang == "" {
+		disk.Lang = "zh"
 	}
 	disk.Envs = sanitize(disk.Envs)
 	// 迁移：早期自动 /** 兜底规则优先级为 1，会压过用户具体规则 → 统一降为最低优先级

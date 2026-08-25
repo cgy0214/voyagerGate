@@ -29,8 +29,6 @@ export function DeleteRule(arg1:string,arg2:number):Promise<void>;
 
 export function DeleteService(arg1:string):Promise<void>;
 
-export function DownloadAndUpdate(arg1:string):Promise<void>;
-
 export function EditRule(arg1:string,arg2:number,arg3:string,arg4:string,arg5:number,arg6:string,arg7:string):Promise<void>;
 
 export function ExportConfig():Promise<string>;
@@ -55,6 +53,8 @@ export function PullServices():Promise<core.ConnectResult>;
 
 export function RemoveEnvironment(arg1:string):Promise<void>;
 
+export function RenameEnvironment(arg1:string,arg2:string):Promise<void>;
+
 export function ReorderRules(arg1:string,arg2:Array<number>):Promise<void>;
 
 export function ResetConfig():Promise<void>;
@@ -74,6 +74,8 @@ export function SetCtx(arg1:context.Context):Promise<void>;
 export function SetDefaultTarget(arg1:string,arg2:string):Promise<void>;
 
 export function SetGateway(arg1:string):Promise<void>;
+
+export function SetLang(arg1:string):Promise<void>;
 
 export function SetPort(arg1:number):Promise<void>;
 

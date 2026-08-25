@@ -7,9 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -25,6 +22,14 @@ const versionURL = "https://raw.githubusercontent.com/cgy0214/voyagerGate/master
 var versionMirrorURLs = []string{
 	"https://ghproxy.net/https://raw.githubusercontent.com/cgy0214/voyagerGate/master/version.json",
 	"https://gh-proxy.com/https://raw.githubusercontent.com/cgy0214/voyagerGate/master/version.json",
+}
+
+// releaseAPIURLs 依次尝试获取最新 Release 信息（含更新说明 body）。
+// 优先官方 API，失败则经镜像代理（仍可走系统代理）。
+var releaseAPIURLs = []string{
+	"https://api.github.com/repos/cgy0214/voyagerGate/releases/latest",
+	"https://ghproxy.net/https://api.github.com/repos/cgy0214/voyagerGate/releases/latest",
+	"https://gh-proxy.com/https://api.github.com/repos/cgy0214/voyagerGate/releases/latest",
 }
 
 // httpClient 返回带系统代理与超时的 HTTP 客户端。
@@ -77,6 +82,13 @@ type RemoteVersion struct {
 	Download string `json:"download,omitempty"`
 }
 
+// githubRelease GitHub Releases API 返回结构（取用 body / html_url）
+type githubRelease struct {
+	TagName string `json:"tag_name"`
+	Body    string `json:"body"`
+	HTMLURL string `json:"html_url"`
+}
+
 func Display() string {
 	return Version
 }
@@ -126,13 +138,65 @@ func checkUpdateInternal() *CheckUpdateResult {
 		download = "https://github.com/cgy0214/voyagerGate/releases/latest"
 	}
 
+	// 更新说明优先取 GitHub 最新 Release 正文，失败回退 version.json 的 note
+	note := remote.Note
+	if rel := fetchReleaseNotes(); rel != "" {
+		note = rel
+	}
+
 	return &CheckUpdateResult{
 		HasUpdate: true,
 		Version:   remote.Version,
-		Note:      remote.Note,
+		Note:      note,
 		Download:  download,
 		Message:   fmt.Sprintf("发现新版本 %s（当前 %s）", remote.Version, Display()),
 	}
+}
+
+// fetchReleaseNotes 读取 GitHub 最新 Release 的更新说明正文（releases/latest）。
+// 依次尝试官方 API 与各镜像代理；任一成功即返回去空白后的正文，全部失败返回空串。
+func fetchReleaseNotes() string {
+	client := httpClient(8 * time.Second)
+	var lastErr error
+	for _, u := range releaseAPIURLs {
+		req, err := http.NewRequest(http.MethodGet, u, nil)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		// GitHub API 要求带 User-Agent，否则 403
+		req.Header.Set("User-Agent", "voyagergate-update-check")
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		resp.Body.Close()
+		if readErr != nil {
+			lastErr = readErr
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+			continue
+		}
+		var rel githubRelease
+		if err := json.Unmarshal(body, &rel); err != nil {
+			lastErr = err
+			continue
+		}
+		note := strings.TrimSpace(rel.Body)
+		if note != "" {
+			return note
+		}
+		// body 为空时退而取 release 页面地址作为说明
+		if rel.HTMLURL != "" {
+			return rel.HTMLURL
+		}
+	}
+	_ = lastErr
+	return ""
 }
 
 // fetchVersionJSON 按主地址 → 镜像列表顺序拉取 version.json，任一成功即返回
@@ -159,61 +223,6 @@ func fetchVersionJSON() ([]byte, error) {
 		return body, nil
 	}
 	return nil, lastErr
-}
-
-func DownloadAndUpdate(downloadURL string) error {
-	exePath, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("获取当前程序路径失败: %v", err)
-	}
-	exePath, _ = filepath.EvalSymlinks(exePath)
-
-	// 确定下载文件名
-	tmpPath := exePath + ".tmp"
-
-	// 下载新版本（走系统代理，避免直连 GitHub 被墙）
-	resp, err := httpClient(60 * time.Second).Get(downloadURL)
-	if err != nil {
-		return fmt.Errorf("下载失败: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("下载失败: HTTP %d", resp.StatusCode)
-	}
-
-	out, err := os.Create(tmpPath)
-	if err != nil {
-		return fmt.Errorf("创建临时文件失败: %v", err)
-	}
-	defer func() { out.Close(); os.Remove(tmpPath) }()
-
-	if _, err := io.Copy(out, resp.Body); err != nil {
-		return fmt.Errorf("写入文件失败: %v", err)
-	}
-	out.Close()
-
-	// Windows 下需要关闭当前进程再替换
-	if runtime.GOOS == "windows" {
-		// 先尝试直接替换（可能失败因为文件正在使用）
-		if err := os.Rename(tmpPath, exePath); err != nil {
-			// 使用 move.bat 延迟替换：下次启动时替换
-			batPath := filepath.Join(filepath.Dir(exePath), "move.bat")
-			batContent := fmt.Sprintf("@echo off\ntimeout /t 2 /nobreak >nul\nmove /y \"%s\" \"%s\"\ndel \"%%~f0\"", tmpPath, exePath)
-			os.WriteFile(batPath, []byte(batContent), 0644)
-			go func() {
-				time.Sleep(1 * time.Second)
-				exec.Command("cmd", "/c", batPath).Start()
-			}()
-		}
-	} else {
-		os.Chmod(tmpPath, 0755)
-		if err := os.Rename(tmpPath, exePath); err != nil {
-			return fmt.Errorf("替换文件失败: %v", err)
-		}
-	}
-
-	return nil
 }
 
 // normalizeVersion 统一去除版本号前缀 v/V 并 trim

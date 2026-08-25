@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import ModalShell from './ModalShell.vue'
 import ConfirmModal from './ConfirmModal.vue'
 import { state, App, run, toast } from '../../store'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 
 const emit = defineEmits(['close', 'new-env'])
 const confirmDel = ref('') // 待删除环境名
@@ -10,7 +12,7 @@ const confirmDel = ref('') // 待删除环境名
 async function enter(name) {
   if (name !== state.snapshot?.current) {
     await run(() => App.SwitchEnvironment(name))
-    toast(`已切换环境: ${name}`)
+    toast(t('modals.envMgr.switched', { name }))
   }
   emit('close')
 }
@@ -18,14 +20,14 @@ async function enter(name) {
 async function exportEnv(name) {
   try {
     const p = await App.ExportEnvironment(name)
-    toast(`已导出: ${p}`)
+    toast(t('modals.envMgr.exported', { path: p }))
   } catch (e) {
     toast(String(e && e.message ? e.message : e), 'err')
   }
 }
 
 async function del(name) {
-  if ((state.snapshot?.envs || []).length <= 1) { toast('至少保留一个环境', 'err'); return }
+  if ((state.snapshot?.envs || []).length <= 1) { toast(t('modals.envMgr.atLeastOne'), 'err'); return }
   confirmDel.value = name
 }
 async function doDel() {
@@ -33,7 +35,24 @@ async function doDel() {
   const name = confirmDel.value
   confirmDel.value = ''
   await run(() => App.RemoveEnvironment(name))
-  toast(`已删除 ${name}`)
+  toast(t('modals.envMgr.deleted', { name }))
+}
+
+const renameTarget = ref('')
+const renameName = ref('')
+function startRename(name) {
+  renameTarget.value = name
+  renameName.value = name
+}
+function cancelRename() {
+  renameTarget.value = ''
+}
+async function doRename() {
+  const oldN = renameTarget.value
+  const newN = renameName.value.trim()
+  if (!newN) { toast(t('modals.envMgr.renameEmpty'), 'err'); return }
+  await run(() => App.RenameEnvironment(oldN, newN), t('modals.envMgr.renameSaved', { name: newN }))
+  renameTarget.value = ''
 }
 
 function runningOf(name) {
@@ -42,33 +61,43 @@ function runningOf(name) {
 </script>
 
 <template>
-  <ModalShell title="环境管理" width="620px" @close="emit('close')">
+  <ModalShell :title="t('modals.envMgr.title')" width="820px" @close="emit('close')">
     <table class="env-table">
       <tr>
-        <th>名称</th><th>注册中心</th><th>端口</th><th>状态</th><th>操作</th>
+        <th>{{ t('modals.envMgr.colName') }}</th><th>{{ t('modals.envMgr.colReg') }}</th><th>{{ t('modals.envMgr.colPort') }}</th><th>{{ t('modals.envMgr.colStatus') }}</th><th>{{ t('modals.envMgr.colOps') }}</th>
       </tr>
       <tr v-for="e in (state.snapshot?.envs || [])" :key="e.name">
-        <td><b>{{ e.name }}</b>{{ e.name === state.snapshot?.current ? ' (当前)' : '' }}</td>
+        <td>
+          <template v-if="renameTarget === e.name">
+            <input class="field" v-model="renameName" style="width:150px" @keyup.enter="doRename" @keyup.esc="cancelRename">
+            <a @click="doRename">{{ t('common.save') }}</a>
+            <a @click="cancelRename">{{ t('common.cancel') }}</a>
+          </template>
+          <template v-else>
+            <b>{{ e.name }}</b>{{ e.name === state.snapshot?.current ? ` (${t('common.current')})` : '' }}
+            <a class="rename" @click="startRename(e.name)">{{ t('modals.envMgr.rename') }}</a>
+          </template>
+        </td>
         <td>{{ e.reg?.type }} {{ e.reg?.addr }}</td>
         <td>{{ e.port }}</td>
-        <td>{{ runningOf(e.name) ? '代理中' : '未代理' }}</td>
+        <td>{{ runningOf(e.name) ? t('modals.envMgr.acting') : t('modals.envMgr.idle') }}</td>
         <td>
-          <a @click="enter(e.name)">进入</a>
-          <a @click="exportEnv(e.name)">导出</a>
-          <a class="del" @click="del(e.name)">删除</a>
+          <a @click="enter(e.name)">{{ t('modals.envMgr.enter') }}</a>
+          <a @click="exportEnv(e.name)">{{ t('modals.envMgr.export') }}</a>
+          <a class="del" @click="del(e.name)">{{ t('modals.envMgr.delete') }}</a>
         </td>
       </tr>
     </table>
     <div class="m-actions">
-      <button class="m-btn" @click="emit('close')">关闭</button>
-      <button class="m-btn primary" @click="emit('close'); emit('new-env')">＋ 新建环境</button>
+      <button class="m-btn" @click="emit('close')">{{ t('modals.envMgr.close') }}</button>
+      <button class="m-btn primary" @click="emit('close'); emit('new-env')">＋ {{ t('modals.envMgr.newEnv') }}</button>
     </div>
 
     <ConfirmModal
       v-if="confirmDel"
-      title="删除环境"
-      :message="`确认删除环境 ${confirmDel} ?\n该环境下的服务与规则将被一并移除。`"
-      ok-text="删除"
+      :title="t('modals.envMgr.delTitle')"
+      :message="t('modals.envMgr.delMsg', { name: confirmDel })"
+      :ok-text="t('common.delete')"
       @cancel="confirmDel = ''"
       @ok="doDel"
     />

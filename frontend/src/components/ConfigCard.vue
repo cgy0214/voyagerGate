@@ -1,6 +1,8 @@
 <script setup>
 import { onMounted, reactive, ref, watch } from 'vue'
 import { state, App, run, toast } from '../store'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 
 const typeDefaults = {
   Nacos: { type: 'Nacos', addr: '', ns: '', group: '', user: '', pass: '', dc: '', token: '' },
@@ -60,12 +62,15 @@ function isSelfForward(addr) {
 }
 async function saveDefaultTarget() {
   if (defTarget.value === 'local' && isSelfForward(defAddr.value)) {
-    toast(`转发地址 ${defAddr.value} 指向本软件监听端口，会造成转发死循环，已拒绝`, 'err')
+    toast(t('configcard.loopRefused', { addr: defAddr.value }), 'err')
     defTarget.value = 'gateway'
     defAddr.value = ''
     return
   }
-  await run(() => App.SetDefaultTarget(defTarget.value, defAddr.value), defTarget.value === 'local' ? `默认转发已设为 ${defAddr.value}` : '默认转发已设为网关兜底')
+  await run(() => App.SetDefaultTarget(defTarget.value, defAddr.value),
+    defTarget.value === 'local'
+      ? t('configcard.defaultSet', { addr: defAddr.value })
+      : t('configcard.defaultGateway'))
 }
 function toggleDefTarget() {
   const next = defTarget.value === 'gateway' ? 'local' : 'gateway'
@@ -106,7 +111,7 @@ async function connectAndPull() {
     await App.ConnectRegistry()
     regBusy.value = 'pulling'
     const r = await App.PullServices()
-    toast(r.message || '拉取完成')
+    toast(r.message || t('configcard.pulled'))
   } catch (e) {
     toast(String(e && e.message ? e.message : e), 'err')
   } finally {
@@ -122,7 +127,7 @@ async function saveAndCheck() {
   try {
     const r = await run(() => App.CheckGateway())
     gwMs.value = r?.ms || 0
-    toast(r?.message || '检测完成')
+    toast(r?.message || t('configcard.checked'))
   } finally {
     gwBusy.value = false
   }
@@ -130,17 +135,17 @@ async function saveAndCheck() {
 
 const regStatusClass = () => regBusy.value ? 'busy' : (state.current?.reg?.ok ? 'ok-tag' : 'fail')
 const regStatusText = () => {
-  if (regBusy.value === 'connecting') return '连接中…'
-  if (regBusy.value === 'pulling') return '拉取中…'
+  if (regBusy.value === 'connecting') return t('configcard.connecting')
+  if (regBusy.value === 'pulling') return t('configcard.pulling')
   return state.current?.reg?.ok
-    ? `✓ 已连接 · 拉取 ${state.current.services.length} 个服务`
-    : '✗ 连接失败'
+    ? t('configcard.connected', { n: state.current.services.length })
+    : t('configcard.connectFail')
 }
 const gwStatusClass = () => gwBusy.value ? 'busy' : (state.current?.gwOk ? 'ok-tag' : (gwInput.value.trim() ? 'fail' : ''))
 const gwStatusText = () => {
-  if (gwBusy.value) return '检测中…'
-  if (state.current?.gwOk) return `✓ 连通 (延迟 ${gwMs.value || 0}ms)`
-  return gwInput.value.trim() ? '✗ 连接失败' : ''
+  if (gwBusy.value) return t('configcard.checking')
+  if (state.current?.gwOk) return t('configcard.gatewayOk', { ms: gwMs.value || 0 })
+  return gwInput.value.trim() ? t('configcard.gatewayFail') : ''
 }
 </script>
 
@@ -149,7 +154,7 @@ const gwStatusText = () => {
     <div class="cfg-row">
       <span class="cfg-label">
         <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-        注册中心</span>
+        {{ t('configcard.registry') }}</span>
       <select class="field" v-model="form.type" @change="onRegTypeChange">
         <option>Nacos</option>
         <option>Eureka</option>
@@ -157,24 +162,24 @@ const gwStatusText = () => {
       </select>
 
       <template v-if="form.type === 'Nacos'">
-        <input class="field wide" v-model="form.addr" placeholder="127.0.0.1:8848" >
-        <input class="field mid" v-model="form.ns" placeholder="命名空间" >
-        <input class="field group-field" v-model="form.group" placeholder="DEFAULT_GROUP" >
+        <input class="field wide" v-model="form.addr" :placeholder="t('configcard.addr') + '（127.0.0.1:8848）'" >
+        <input class="field mid" v-model="form.ns" :placeholder="t('configcard.namespace')" >
+        <input class="field group-field" v-model="form.group" :placeholder="t('configcard.group')" >
       </template>
       <template v-else-if="form.type === 'Eureka'">
-        <input class="field wide" v-model="form.addr" placeholder="http://localhost:8761/eureka/" >
-        <input class="field mid" v-model="form.user" placeholder="用户名（可选）" >
-        <input class="field mid" v-model="form.pass" type="password" placeholder="密码（可选）" >
+        <input class="field wide" v-model="form.addr" :placeholder="t('configcard.addr') + '（http://localhost:8761/eureka/）'" >
+        <input class="field mid" v-model="form.user" :placeholder="t('configcard.username')" >
+        <input class="field mid" v-model="form.pass" type="password" :placeholder="t('configcard.password')" >
       </template>
       <template v-else>
-        <input class="field wide" v-model="form.addr" placeholder="localhost:8500" >
-        <input class="field mid" v-model="form.dc" placeholder="数据中心 dc1" >
-        <input class="field mid" v-model="form.token" type="password" placeholder="Token（可选）" >
+        <input class="field wide" v-model="form.addr" :placeholder="t('configcard.addr') + '（localhost:8500）'" >
+        <input class="field mid" v-model="form.dc" :placeholder="t('configcard.datacenter')" >
+        <input class="field mid" v-model="form.token" type="password" :placeholder="t('configcard.token')" >
       </template>
 
       <button class="btn" @click="connectAndPull">
         <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
-        <span class="bt">保存并拉取</span>
+        <span class="bt">{{ t('configcard.savePull') }}</span>
       </button>
       <span :class="regStatusClass()">{{ regStatusText() }}</span>
     </div>
@@ -182,29 +187,29 @@ const gwStatusText = () => {
     <div class="cfg-row" style="padding-top:9px;border-top:1px solid var(--border)">
       <span class="cfg-label">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-        网关地址</span>
+        {{ t('configcard.gateway') }}</span>
       <input
         class="field xwide"
         v-model="gwInput"
-        placeholder="https://voyagergate.com"
+        :placeholder="t('configcard.gateway')"
         @keyup.enter="saveAndCheck"
       >
       <button class="btn" @click="saveAndCheck">
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <span class="bt">保存并检测</span>
+        <span class="bt">{{ t('configcard.saveCheck') }}</span>
       </button>
       <span :class="gwStatusClass()">{{ gwStatusText() }}</span>
       <span class="cfg-sep"></span>
-      <span class="switch" :class="{ on: defTarget === 'gateway' }" title="开启=未匹配服务的请求走网关兜底；关闭=转发到指定地址" @click="toggleDefTarget"><span class="knob"></span></span>
+      <span class="switch" :class="{ on: defTarget === 'gateway' }" :title="t('configcard.selfForwardTip')" @click="toggleDefTarget"><span class="knob"></span></span>
       <input
         v-if="defTarget === 'local'"
         class="field wide"
         v-model="defAddr"
-        placeholder="转发到指定地址（如 127.0.0.1:60018）"
+        :placeholder="t('configcard.defaultAddr')"
         @keyup.enter="onDefAddrChange"
         @change="onDefAddrChange"
       >
-      <span v-else class="def-hint">未匹配服务 → 网关兜底</span>
+      <span v-else class="def-hint">{{ t('configcard.defaultTarget') }}</span>
     </div>
   </div>
 </template>
