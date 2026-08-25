@@ -20,10 +20,11 @@ const (
 
 // File 配置文件磁盘结构
 type File struct {
-	Version string               `yaml:"version"`
-	Theme   string               `yaml:"theme"`
-	Current string               `yaml:"current"`
-	Envs    []*model.Environment `yaml:"environments"`
+	Version   string               `yaml:"version"`
+	Theme     string               `yaml:"theme"`
+	LocalOnly bool                 `yaml:"localOnly"` // true = 仅绑 127.0.0.1；false/缺省 = 绑 0.0.0.0（历史行为）
+	Current   string               `yaml:"current"`
+	Envs      []*model.Environment `yaml:"environments"`
 }
 
 type Store struct {
@@ -55,6 +56,7 @@ func ConfigDir() string {
 
 // Load 加载配置文件；文件不存在或损坏时回退到空白配置（不报错打断启动）。
 func (s *Store) Load() *File {
+	// LocalOnly 零值 false = 绑 0.0.0.0，与历史版本行为一致；设置中开启"仅本机"后写 true
 	f := &File{Version: Version, Theme: "dark"}
 	data, err := os.ReadFile(s.path)
 	if err != nil {
@@ -70,7 +72,6 @@ func (s *Store) Load() *File {
 	if disk.Theme == "" {
 		disk.Theme = "dark"
 	}
-	// 校正环境列表，防止非法状态
 	disk.Envs = sanitize(disk.Envs)
 	// 迁移：早期自动 /** 兜底规则优先级为 1，会压过用户具体规则 → 统一降为最低优先级
 	for _, e := range disk.Envs {

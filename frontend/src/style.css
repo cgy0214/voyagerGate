@@ -127,6 +127,9 @@ body.light .status-on { color:var(--text); }
 .btn svg { width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
 .btn .bt { font-size:12px; opacity:.85; }
 .btn:hover { color:var(--blue); border-color:var(--blue); background:var(--glass-hi); }
+.btn.primary { color:#fff; background:var(--blue); border-color:var(--blue); }
+.btn.primary:hover { opacity:.9; }
+.btn:disabled { opacity:.5; cursor:not-allowed; pointer-events:none; }
 .ok-tag { color:var(--green); font-weight:500; display:flex; align-items:center; gap:5px; white-space:nowrap; }
 .busy { color:var(--blue); white-space:nowrap; }
 .fail { color:var(--red); white-space:nowrap; }

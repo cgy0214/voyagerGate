@@ -126,6 +126,10 @@ export function SetAllServices(arg1) {
   return window['go']['main']['App']['SetAllServices'](arg1);
 }
 
+export function SetAllowLAN(arg1) {
+  return window['go']['main']['App']['SetAllowLAN'](arg1);
+}
+
 export function SetCtx(arg1) {
   return window['go']['main']['App']['SetCtx'](arg1);
 }

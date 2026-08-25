@@ -67,6 +67,8 @@ export function SetAllRules(arg1:string,arg2:boolean):Promise<void>;
 
 export function SetAllServices(arg1:boolean):Promise<void>;
 
+export function SetAllowLAN(arg1:boolean):Promise<void>;
+
 export function SetCtx(arg1:context.Context):Promise<void>;
 
 export function SetDefaultTarget(arg1:string,arg2:string):Promise<void>;
