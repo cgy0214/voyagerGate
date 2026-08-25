@@ -9,5 +9,11 @@
   "author": {
     "name": "rabbit",
     "email": "rabbit boy_0214@sina.com"
+  },
+  "info": {
+    "companyName": "rabbit",
+    "productName": "VoyagerGate",
+    "productVersion": "1.0.1",
+    "copyright": "Copyright © 2024 rabbit"
   }
 }
