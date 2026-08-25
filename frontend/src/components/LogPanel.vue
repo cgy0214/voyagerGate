@@ -1,16 +1,25 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { state } from '../store'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 
-const fltDec = ref('全部')
-const fltSvc = ref('全部')
+const fltDec = ref('all')
+const fltSvc = ref('all')
 const kw = ref('') // 日志关键字搜索
+
+// 后端决策文字（本地/网关）映射到稳定的过滤 key
+function decKey(dec) {
+  if (dec === '本地' || dec === 'Local') return 'local'
+  if (dec === '网关' || dec === 'Gateway') return 'gateway'
+  return ''
+}
 
 const visibleLogs = computed(() => {
   const q = kw.value.trim().toLowerCase()
   return state.logs.filter(l => {
-    if (fltDec.value !== '全部' && l.dec !== fltDec.value) return false
-    if (fltSvc.value !== '全部' && l.sname !== fltSvc.value) return false
+    if (fltDec.value !== 'all' && decKey(l.dec) !== fltDec.value) return false
+    if (fltSvc.value !== 'all' && l.sname !== fltSvc.value) return false
     if (q) {
       const hay = [l.p, l.final, l.s, l.m, l.target].filter(Boolean).join(' ').toLowerCase()
       if (!hay.includes(q)) return false
@@ -25,7 +34,7 @@ const svcOptions = computed(() => {
 
 // 服务列表变化时校正筛选（服务被删除则回退「全部」）
 watch(svcOptions, names => {
-  if (fltSvc.value !== '全部' && !names.includes(fltSvc.value)) fltSvc.value = '全部'
+  if (fltSvc.value !== 'all' && !names.includes(fltSvc.value)) fltSvc.value = 'all'
 })
 
 function pauseLog() {
@@ -39,21 +48,21 @@ function clearLog() {
 <template>
   <div class="log glass">
     <div class="log-head">
-      <span>▍ 实时日志</span>
-      <span class="lbtn" :title="state.logPaused ? '继续' : '暂停'" @click="pauseLog">
+      <span>▍ {{ t('log.title') }}</span>
+      <span class="lbtn" :title="state.logPaused ? t('log.resume') : t('log.pause')" @click="pauseLog">
         <svg v-if="!state.logPaused" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
         <svg v-else viewBox="0 0 24 24"><polygon points="7 4 19 12 7 20 7 4"/></svg>
       </span>
-      <span class="lbtn" title="清空日志" @click="clearLog">
+      <span class="lbtn" :title="t('log.clear')" @click="clearLog">
         <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
       </span>
-      <input class="log-search" v-model="kw" placeholder="🔍 搜索日志">
-      <span class="filters">决策
+      <input class="log-search" v-model="kw" :placeholder="t('log.search')">
+      <span class="filters">{{ t('log.decision') }}
         <select v-model="fltDec">
-          <option>全部</option><option>本地</option><option>网关</option>
+          <option value="all">{{ t('common.all') }}</option><option value="local">{{ t('common.local') }}</option><option value="gateway">{{ t('common.gateway') }}</option>
         </select>
-        服务 <select v-model="fltSvc">
-          <option>全部</option>
+        {{ t('log.service') }} <select v-model="fltSvc">
+          <option value="all">{{ t('common.all') }}</option>
           <option v-for="s in svcOptions" :key="s">{{ s }}</option>
         </select>
       </span>
@@ -75,7 +84,7 @@ function clearLog() {
           <div v-if="l.target" class="log-sub" :class="l.c === 200 ? 'ok' : 'bad'"><span class="go">↳ </span>{{ l.target }}{{ l.final }}</div>
         </div>
       </template>
-      <div v-else class="log-line" style="color:var(--dim)">暂无日志…</div>
+      <div v-else class="log-line" style="color:var(--dim)">{{ t('log.noLogs') }}</div>
     </div>
   </div>
 </template>

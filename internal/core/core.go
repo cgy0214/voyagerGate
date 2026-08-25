@@ -36,6 +36,7 @@ type Snapshot struct {
 	Envs     []*model.Environment `json:"envs"`
 	Current  string               `json:"current"`
 	Theme    string               `json:"theme"`
+	Lang     string               `json:"lang"`
 	AllowLAN bool                 `json:"allowLan"`
 	Running  bool                 `json:"running"`
 	LocalIP  string               `json:"localIp"`
@@ -76,6 +77,7 @@ type Core struct {
 	envs     []*model.Environment
 	current  string
 	theme    string
+	lang     string
 	allowLAN bool
 	localIP  string
 	reqCount int64
@@ -103,6 +105,7 @@ func NewCoreWithStore(st *config.Store) *Core {
 		envs:     f.Envs,
 		current:  f.Current,
 		theme:    f.Theme,
+		lang:     f.Lang,
 		allowLAN: !f.LocalOnly,
 		logs:     []*model.LogEntry{},
 	}
@@ -201,6 +204,7 @@ func (c *Core) buildFile() *config.File {
 	return &config.File{
 		Version:   config.Version,
 		Theme:     c.theme,
+		Lang:      c.lang,
 		LocalOnly: !c.allowLAN,
 		Current:   c.current,
 		Envs:      c.envs,
@@ -440,6 +444,7 @@ func (c *Core) Snapshot() *Snapshot {
 		Envs:     envs,
 		Current:  c.current,
 		Theme:    c.theme,
+		Lang:     c.lang,
 		AllowLAN: c.allowLAN,
 		Running:  func() bool { e := c.cur(); return e != nil && e.Running }(),
 		LocalIP:  c.localIP,
@@ -544,6 +549,48 @@ func (c *Core) RemoveEnvironment(name string) error {
 	} else {
 		c.syncProxy()
 	}
+	c.persist()
+	c.emitSnapshot()
+	return nil
+}
+
+// RenameEnvironment 重命名环境（同时处理 current / 代理引擎 key 的同步）
+func (c *Core) RenameEnvironment(oldName, newName string) error {
+	newName = strings.TrimSpace(newName)
+	if newName == "" {
+		return fmt.Errorf("环境名称必填")
+	}
+	c.mu.Lock()
+	if newName == oldName {
+		c.mu.Unlock()
+		return nil
+	}
+	for _, e := range c.envs {
+		if e.Name == newName {
+			c.mu.Unlock()
+			return fmt.Errorf("环境已存在: %s", newName)
+		}
+	}
+	var env *model.Environment
+	for _, e := range c.envs {
+		if e.Name == oldName {
+			env = e
+			break
+		}
+	}
+	if env == nil {
+		c.mu.Unlock()
+		return fmt.Errorf("环境不存在: %s", oldName)
+	}
+	env.Name = newName
+	if c.current == oldName {
+		c.current = newName
+		if pe := c.proxies[oldName]; pe != nil {
+			delete(c.proxies, oldName)
+			c.proxies[newName] = pe
+		}
+	}
+	c.mu.Unlock()
 	c.persist()
 	c.emitSnapshot()
 	return nil
@@ -1324,6 +1371,22 @@ func (c *Core) SetTheme(theme string) {
 	c.applyWindowTheme()
 }
 
+// SetLang 切换 UI 语言并持久化到配置文件
+func (c *Core) SetLang(lang string) {
+	if lang != "zh" && lang != "en" {
+		lang = "zh"
+	}
+	c.mu.Lock()
+	if c.lang == lang {
+		c.mu.Unlock()
+		return
+	}
+	c.lang = lang
+	c.mu.Unlock()
+	c.persist()
+	c.emitSnapshot()
+}
+
 // SetAllowLAN 设置是否允许局域网访问代理：
 //   - true  → 绑定 0.0.0.0（局域网设备可经本机代理转发）
 //   - false → 仅绑定 127.0.0.1（默认安全模式）
@@ -1520,11 +1583,6 @@ func (c *Core) GetVersion() string {
 // CheckUpdateDetail 返回详细更新信息（含版本号/说明/下载地址）
 func (c *Core) CheckUpdateDetail() *version.CheckUpdateResult {
 	return version.CheckUpdateDetail()
-}
-
-// DownloadAndUpdate 下载新版本并替换当前程序
-func (c *Core) DownloadAndUpdate(url string) error {
-	return version.DownloadAndUpdate(url)
 }
 
 // OpenURL 用系统默认浏览器打开指定 URL

@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue'
 import { state, App, toast } from '../store'
 import ConfirmModal from './modals/ConfirmModal.vue'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 
 const version = computed(() => (state.version))
 const updInfo = ref(null)
@@ -23,9 +25,9 @@ async function checkUpdate() {
   const detail = await App.CheckUpdateDetail()
   if (detail?.hasUpdate) {
     updInfo.value = detail
-    toast(detail.message)
+    toast(t('statusbar.hasUpdate'))
   } else {
-    toast(detail?.message || '已是最新版本')
+    toast(t('statusbar.latest'))
   }
 }
 
@@ -38,18 +40,20 @@ function goDownload() {
 
 <template>
   <div class="statusbar">
-    <span>注册中心 <b>{{ regText }}</b></span>
-    <span>在线 <b>{{ onlineText }}</b></span>
-    <span>请求 <b>{{ reqText }}</b></span>
-    <span>平均耗时 <b>{{ msText }}</b></span>
-    <span class="ver-link" title="检查更新" @click="checkUpdate">VoyagerGate 渡桥 <b>{{ version }}</b></span>
+    <span>{{ t('statusbar.registry') }} <b>{{ regText }}</b></span>
+    <span>{{ t('statusbar.online') }} <b>{{ onlineText }}</b></span>
+    <span>{{ t('statusbar.requests') }} <b>{{ reqText }}</b></span>
+    <span>{{ t('statusbar.avgMs') }} <b>{{ msText }}</b></span>
+    <span class="ver-link" :title="t('statusbar.checkUpdate')" @click="checkUpdate">VoyagerGate 渡桥 <b>{{ version }}</b></span>
   </div>
 
   <ConfirmModal
     v-if="updInfo"
-    title="发现新版本"
-    :message="`当前版本 ${version}，可更新至 ${updInfo.version}。\n\n${updInfo.note || ''}\n\n`"
-    ok-text="去下载"
+    width="560px"
+    md
+    :title="t('statusbar.hasUpdate')"
+    :message="t('statusbar.downloadMsg', { ver: version, newVer: updInfo.version, note: updInfo.note || '' })"
+    :ok-text="t('statusbar.goDownload')"
     @cancel="updInfo = null"
     @ok="goDownload"
   />

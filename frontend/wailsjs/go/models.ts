@@ -36,6 +36,7 @@ export namespace core {
 	    envs: model.Environment[];
 	    current: string;
 	    theme: string;
+	    lang: string;
 	    allowLan: boolean;
 	    running: boolean;
 	    localIp: string;
@@ -53,6 +54,7 @@ export namespace core {
 	        this.envs = this.convertValues(source["envs"], model.Environment);
 	        this.current = source["current"];
 	        this.theme = source["theme"];
+	        this.lang = source["lang"];
 	        this.allowLan = source["allowLan"];
 	        this.running = source["running"];
 	        this.localIp = source["localIp"];
