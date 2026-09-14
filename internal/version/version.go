@@ -2,33 +2,31 @@
 package version
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"golang.org/x/sys/windows/registry"
 )
 
-var (
-	versionOnce sync.Once
-	versionVal  string
-)
+//go:embed version.json
+var versionFS embed.FS
+
+var embeddedVersion string
 
 const defaultVersion = "v1.0.1"
 
-const versionURL = "https://raw.githubusercontent.com/cgy0214/voyagerGate/master/version.json"
+const versionURL = "https://raw.githubusercontent.com/cgy0214/voyagerGate/master/internal/version/version.json"
 
 var versionMirrorURLs = []string{
-	"https://ghproxy.net/https://raw.githubusercontent.com/cgy0214/voyagerGate/master/version.json",
-	"https://gh-proxy.com/https://raw.githubusercontent.com/cgy0214/voyagerGate/master/version.json",
+	"https://ghproxy.net/https://raw.githubusercontent.com/cgy0214/voyagerGate/master/internal/version/version.json",
+	"https://gh-proxy.com/https://raw.githubusercontent.com/cgy0214/voyagerGate/master/internal/version/version.json",
 }
 
 var releaseAPIURLs = []string{
@@ -90,43 +88,24 @@ type githubRelease struct {
 	HTMLURL string `json:"html_url"`
 }
 
-func loadVersion() string {
-	versionOnce.Do(func() {
-		// 依次尝试：exe 同目录 → 当前工作目录
-		paths := []string{}
-		if exe, err := os.Executable(); err == nil {
-			paths = append(paths, filepath.Join(filepath.Dir(exe), "version.json"))
-		}
-		if wd, err := os.Getwd(); err == nil {
-			paths = append(paths, filepath.Join(wd, "version.json"))
-		}
-
-		var data []byte
-		for _, p := range paths {
-			d, err := os.ReadFile(p)
-			if err == nil {
-				data = d
-				break
-			}
-		}
-		if data == nil {
-			versionVal = defaultVersion
-			return
-		}
-		var cfg struct {
-			Version string `json:"version"`
-		}
-		if err := json.Unmarshal(data, &cfg); err != nil || cfg.Version == "" {
-			versionVal = defaultVersion
-			return
-		}
-		versionVal = "v" + strings.TrimLeft(cfg.Version, "vV")
-	})
-	return versionVal
+func init() {
+	data, err := versionFS.ReadFile("version.json")
+	if err != nil {
+		embeddedVersion = defaultVersion
+		return
+	}
+	var cfg struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(data, &cfg); err != nil || cfg.Version == "" {
+		embeddedVersion = defaultVersion
+		return
+	}
+	embeddedVersion = "v" + strings.TrimLeft(cfg.Version, "vV")
 }
 
 func Display() string {
-	return loadVersion()
+	return embeddedVersion
 }
 
 // CheckUpdateResult 检查更新返回结果
