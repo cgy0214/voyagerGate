@@ -63,10 +63,13 @@ function runningOf(name) {
 <template>
   <ModalShell :title="t('modals.envMgr.title')" width="820px" @close="emit('close')">
     <table class="env-table">
-      <tr>
-        <th>{{ t('modals.envMgr.colName') }}</th><th>{{ t('modals.envMgr.colReg') }}</th><th>{{ t('modals.envMgr.colPort') }}</th><th>{{ t('modals.envMgr.colStatus') }}</th><th>{{ t('modals.envMgr.colOps') }}</th>
-      </tr>
-      <tr v-for="e in (state.snapshot?.envs || [])" :key="e.name">
+      <thead>
+        <tr>
+          <th>{{ t('modals.envMgr.colName') }}</th><th>{{ t('modals.envMgr.colReg') }}</th><th>{{ t('modals.envMgr.colPort') }}</th><th>{{ t('modals.envMgr.colStatus') }}</th><th>{{ t('modals.envMgr.colOps') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="e in (state.snapshot?.envs || [])" :key="e.name">
         <td>
           <template v-if="renameTarget === e.name">
             <input class="field" v-model="renameName" style="width:150px" @keyup.enter="doRename" @keyup.esc="cancelRename">
@@ -87,6 +90,7 @@ function runningOf(name) {
           <a class="del" @click="del(e.name)">{{ t('modals.envMgr.delete') }}</a>
         </td>
       </tr>
+      </tbody>
     </table>
     <div class="m-actions">
       <button class="m-btn" @click="emit('close')">{{ t('modals.envMgr.close') }}</button>

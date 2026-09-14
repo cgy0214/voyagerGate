@@ -6,12 +6,18 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 
 const emit = defineEmits(['close'])
-const form = reactive({ name: '', type: 'Nacos', addr: '', ns: '', group: '', user: '', pass: '', dc: '', token: '', gw: '', port: 6000, copyFrom: '' })
+const form = reactive({ name: '', type: 'Nacos', addr: '', ns: '', group: '', nacosVersion: '1', nacosUser: '', nacosPass: '', user: '', pass: '', dc: '', token: '', gw: '', port: 6000, copyFrom: '' })
 const err = ref('')
 
 function buildReg() {
   const base = { type: form.type, addr: form.addr }
-  if (form.type === 'Nacos') { base.ns = form.ns; base.group = form.group }
+  if (form.type === 'Nacos') { 
+    base.ns = form.ns; 
+    base.group = form.group;
+    base.nacosVersion = form.nacosVersion;
+    base.nacosUser = form.nacosUser;
+    base.nacosPass = form.nacosPass;
+  }
   else if (form.type === 'Eureka') { base.user = form.user; base.pass = form.pass }
   else { base.dc = form.dc; base.token = form.token }
   return base
@@ -40,9 +46,17 @@ async function create() {
     </div>
 
     <template v-if="form.type === 'Nacos'">
+      <div class="frow"><label>{{ t('modals.newEnv.version') }}</label>
+        <select v-model="form.nacosVersion">
+          <option value="1">v1 / v2</option>
+          <option value="3">v3</option>
+        </select>
+      </div>
       <div class="frow"><label>{{ t('modals.newEnv.address') }}</label><input v-model="form.addr" :placeholder="t('modals.newEnv.address') + ': 127.0.0.1:8848'"></div>
       <div class="frow"><label>{{ t('modals.newEnv.namespace') }}</label><input v-model="form.ns" :placeholder="t('modals.newEnv.namespace')"></div>
       <div class="frow"><label>{{ t('modals.newEnv.group') }}</label><input v-model="form.group" :placeholder="t('modals.newEnv.group')"></div>
+      <div class="frow"><label>{{ t('modals.newEnv.username') }}</label><input v-model="form.nacosUser" :placeholder="t('modals.newEnv.username')"></div>
+      <div class="frow"><label>{{ t('modals.newEnv.password') }}</label><input v-model="form.nacosPass" type="password" :placeholder="t('modals.newEnv.password')"></div>
     </template>
     <template v-else-if="form.type === 'Eureka'">
       <div class="frow"><label>{{ t('modals.newEnv.address') }}</label><input v-model="form.addr" :placeholder="t('modals.newEnv.address') + ': http://localhost:8761/eureka/'"></div>

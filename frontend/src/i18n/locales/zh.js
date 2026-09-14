@@ -155,6 +155,7 @@ export default {
       namePh: '如 uat-测试',
       registry: '注册中心',
       address: '地址',
+      version: '版本',
       namespace: '命名空间',
       group: '分组',
       username: '用户名',

@@ -27,15 +27,18 @@ const (
 
 // Registry 注册中心连接配置（类型联动字段，仅填充当前类型相关字段）
 type Registry struct {
-	Type  string `json:"type" yaml:"type"`                         // Nacos | Eureka | Consul
-	Addr  string `json:"addr" yaml:"addr"`                         // 服务地址
-	NS    string `json:"ns,omitempty" yaml:"namespace,omitempty"`  // Nacos 命名空间
-	Group string `json:"group,omitempty" yaml:"group,omitempty"`   // Nacos 分组
-	User  string `json:"user,omitempty" yaml:"username,omitempty"` // Eureka 用户名
-	Pass  string `json:"pass,omitempty" yaml:"password,omitempty"` // Eureka 密码
-	DC    string `json:"dc,omitempty" yaml:"datacenter,omitempty"` // Consul 数据中心
-	Token string `json:"token,omitempty" yaml:"token,omitempty"`   // Consul ACL Token
-	OK    bool   `json:"ok" yaml:"-"`                              // 连接成功标志（运行态，不落盘）
+	Type      string `json:"type" yaml:"type"`
+	Addr      string `json:"addr" yaml:"addr"`
+	NS        string `json:"ns,omitempty" yaml:"namespace,omitempty"`
+	Group     string `json:"group,omitempty" yaml:"group,omitempty"`
+	NacosVer  string `json:"nacosVersion,omitempty" yaml:"nacosVersion,omitempty"`
+	NacosUser string `json:"nacosUser,omitempty" yaml:"nacosUsername,omitempty"`
+	NacosPass string `json:"nacosPass,omitempty" yaml:"nacosPassword,omitempty"`
+	User      string `json:"user,omitempty" yaml:"username,omitempty"`
+	Pass      string `json:"pass,omitempty" yaml:"password,omitempty"`
+	DC        string `json:"dc,omitempty" yaml:"datacenter,omitempty"`
+	Token     string `json:"token,omitempty" yaml:"token,omitempty"`
+	OK        bool   `json:"ok" yaml:"-"`
 }
 
 // Service 服务（本地开发服务与注册中心服务统一建模）
@@ -123,7 +126,6 @@ type Global struct {
 	Theme    string `json:"theme"`    // dark | light
 }
 
-// LogEntry 一条请求日志（环形队列，上限 50）
 // LogEntry 代理请求日志（由回调产出，经事件推送前端）
 type LogEntry struct {
 	T      string `json:"t"`      // 时间 HH:MM:SS
@@ -139,7 +141,6 @@ type LogEntry struct {
 	SName  string `json:"sname"`  // 服务名（冗余，便于前端筛选）
 }
 
-// RulePath 规则匹配路径示例；仅作文档辅助
 var RulePath = "/order/**"
 
 // Mask 脱敏展示：密码 / Token 在弹窗展示与导出时打码
