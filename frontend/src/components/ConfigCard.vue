@@ -5,9 +5,9 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 
 const typeDefaults = {
-  Nacos: { type: 'Nacos', addr: '', ns: '', group: '', user: '', pass: '', dc: '', token: '' },
-  Eureka: { type: 'Eureka', addr: '', ns: '', group: '', user: '', pass: '', dc: '', token: '' },
-  Consul: { type: 'Consul', addr: '', ns: '', group: '', user: '', pass: '', dc: '', token: '' },
+  Nacos: { type: 'Nacos', addr: '', ns: '', group: '', nacosVersion: '1', nacosUser: '', nacosPass: '', user: '', pass: '', dc: '', token: '' },
+  Eureka: { type: 'Eureka', addr: '', ns: '', group: '', nacosVersion: '1', nacosUser: '', nacosPass: '', user: '', pass: '', dc: '', token: '' },
+  Consul: { type: 'Consul', addr: '', ns: '', group: '', nacosVersion: '1', nacosUser: '', nacosPass: '', user: '', pass: '', dc: '', token: '' },
 }
 // 各类型独立缓存表单输入：切换类型不丢值、不自动保存，点击「连接并拉取」才保存
 const cache = reactive({
@@ -23,6 +23,7 @@ const gwMs = ref(0)
 const gwInput = ref('')
 const defTarget = ref('gateway')
 const defAddr = ref('')
+const nacosExpand = ref(false)
 
 // 从后端当前环境同步表单（环境切换时）——只写入当前类型的缓存
 function syncForm() {
@@ -34,6 +35,9 @@ function syncForm() {
   c.addr = r.addr || ''
   c.ns = r.ns || ''
   c.group = r.group || ''
+  c.nacosVersion = r.nacosVersion || '1'
+  c.nacosUser = r.nacosUser || ''
+  c.nacosPass = r.nacosPass || ''
   c.user = r.user || ''
   c.pass = r.pass || ''
   c.dc = r.dc || ''
@@ -165,6 +169,7 @@ const gwStatusText = () => {
         <input class="field wide" v-model="form.addr" :placeholder="t('configcard.addr') + '（127.0.0.1:8848）'" >
         <input class="field mid" v-model="form.ns" :placeholder="t('configcard.namespace')" >
         <input class="field group-field" v-model="form.group" :placeholder="t('configcard.group')" >
+        <span class="toggle-icon" :class="{ open: nacosExpand }" @click="nacosExpand = !nacosExpand">▸</span>
       </template>
       <template v-else-if="form.type === 'Eureka'">
         <input class="field wide" v-model="form.addr" :placeholder="t('configcard.addr') + '（http://localhost:8761/eureka/）'" >
@@ -182,6 +187,16 @@ const gwStatusText = () => {
         <span class="bt">{{ t('configcard.savePull') }}</span>
       </button>
       <span :class="regStatusClass()">{{ regStatusText() }}</span>
+    </div>
+
+    <div v-if="form.type === 'Nacos' && nacosExpand" class="cfg-row">
+      <span class="cfg-label" style="visibility:hidden">-</span>
+      <select class="field" v-model="form.nacosVersion" style="width:70px">
+        <option value="1">v1 / v2</option>
+        <option value="3">v3</option>
+      </select>
+      <input class="field mid" v-model="form.nacosUser" :placeholder="t('configcard.username')" >
+      <input class="field mid" v-model="form.nacosPass" type="password" :placeholder="t('configcard.password')" >
     </div>
 
     <div class="cfg-row" style="padding-top:9px;border-top:1px solid var(--border)">
@@ -213,3 +228,24 @@ const gwStatusText = () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.toggle-icon {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--text);
+  background: var(--border);
+  border-radius: 4px;
+  transition: transform 0.2s, opacity 0.2s;
+  flex-shrink: 0;
+  user-select: none;
+}
+.toggle-icon:hover { opacity: 0.7; }
+.toggle-icon.open { transform: rotate(90deg); }
+</style>

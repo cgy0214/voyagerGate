@@ -7,9 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "wails:dev": "cd .. && wails dev",
-    "wails:build": "cd .. && wails build",
-    "wails:build:nsis": "cd .. && wails build -nsis -webview2 embed"
+  "wails:dev": "cd .. && \"C:\\Users\\Administrator\\go\\bin\\wails.exe\" dev",
+  "wails:build": "cd .. && \"C:\\Users\\Administrator\\go\\bin\\wails.exe\" build",
+  "wails:build:nsis": "cd .. && \"C:\\Users\\Administrator\\go\\bin\\wails.exe\" build -nsis -webview2 embed"
   },
   "dependencies": {
     "dompurify": "^3.4.14",

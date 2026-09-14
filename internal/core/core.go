@@ -1577,7 +1577,7 @@ func (c *Core) CheckUpdate() string {
 
 // GetVersion 返回当前产品版本号（形如 v1.0.0，供前端展示时自行去 v）
 func (c *Core) GetVersion() string {
-	return version.Version
+	return version.Display()
 }
 
 // CheckUpdateDetail 返回详细更新信息（含版本号/说明/下载地址）

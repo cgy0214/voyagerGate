@@ -155,6 +155,7 @@ export default {
       namePh: 'e.g. uat-test',
       registry: 'Registry',
       address: 'Address',
+      version: 'Version',
       namespace: 'Namespace',
       group: 'Group',
       username: 'Username',

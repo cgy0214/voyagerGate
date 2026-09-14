@@ -12,8 +12,9 @@ import (
 	"voyagergate/internal/version"
 )
 
+var Version = version.Display()
+
 const (
-	Version = version.Version
 	// MaxEnvs 环境数量上限（防御性限制）
 	MaxEnvs = 50
 )
@@ -115,10 +116,13 @@ func sanitize(envs []*model.Environment) []*model.Environment {
 			continue
 		}
 		if e.Reg == nil {
-			e.Reg = &model.Registry{Type: model.TypeNacos, Addr: "", NS: "", Group: "DEFAULT_GROUP"}
+			e.Reg = &model.Registry{Type: model.TypeNacos, Addr: "", NS: "", Group: "DEFAULT_GROUP", NacosVer: "1"}
 		}
 		if e.Reg.Type == "" {
 			e.Reg.Type = model.TypeNacos
+		}
+		if e.Reg.NacosVer == "" {
+			e.Reg.NacosVer = "1"
 		}
 		if e.Services == nil {
 			e.Services = []*model.Service{}
@@ -137,10 +141,11 @@ func DefaultEnv(name string) *model.Environment {
 		Name: name,
 		Port: 6000,
 		Reg: &model.Registry{
-			Type:  model.TypeNacos,
-			Addr:  "",
-			NS:    "",
-			Group: "",
+			Type:     model.TypeNacos,
+			Addr:     "",
+			NS:       "",
+			Group:    "",
+			NacosVer: "1",
 		},
 		GW:       "",
 		GWOk:     false,
@@ -155,15 +160,23 @@ func PreviewYAML(e *model.Environment, localIP string) string {
 	if reg == nil {
 		reg = &model.Registry{}
 	}
-	// 构建脱敏后的注册中心字段（仅输出当前类型相关字段）
 	line := "  addr: " + reg.Addr
 	switch reg.Type {
 	case model.TypeNacos:
+		if reg.NacosVer != "" {
+			line += "\n  nacosVersion: " + reg.NacosVer
+		}
 		if reg.NS != "" {
 			line += "\n  namespace: " + reg.NS
 		}
 		if reg.Group != "" {
 			line += "\n  group: " + reg.Group
+		}
+		if reg.NacosUser != "" {
+			line += "\n  nacosUsername: " + reg.NacosUser
+		}
+		if reg.NacosPass != "" {
+			line += "\n  nacosPassword: " + model.Mask(reg.NacosPass)
 		}
 	case model.TypeEureka:
 		if reg.User != "" {

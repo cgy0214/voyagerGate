@@ -7,34 +7,36 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/sys/windows/registry"
 )
 
-const Version = "v1.0.1"
+var (
+	versionOnce sync.Once
+	versionVal  string
+)
+
+const defaultVersion = "v1.0.1"
 
 const versionURL = "https://raw.githubusercontent.com/cgy0214/voyagerGate/master/version.json"
 
-// 镜像回退：直连 GitHub 失败（如未开代理的国内网络）时依次尝试
 var versionMirrorURLs = []string{
 	"https://ghproxy.net/https://raw.githubusercontent.com/cgy0214/voyagerGate/master/version.json",
 	"https://gh-proxy.com/https://raw.githubusercontent.com/cgy0214/voyagerGate/master/version.json",
 }
 
-// releaseAPIURLs 依次尝试获取最新 Release 信息（含更新说明 body）。
-// 优先官方 API，失败则经镜像代理（仍可走系统代理）。
 var releaseAPIURLs = []string{
 	"https://api.github.com/repos/cgy0214/voyagerGate/releases/latest",
 	"https://ghproxy.net/https://api.github.com/repos/cgy0214/voyagerGate/releases/latest",
 	"https://gh-proxy.com/https://api.github.com/repos/cgy0214/voyagerGate/releases/latest",
 }
 
-// httpClient 返回带系统代理与超时的 HTTP 客户端。
-// Go 默认不读 Windows 系统代理，这里显式探测注册表设置，
-// 保证系统代理用户无需额外配置即可访问 GitHub。
 func httpClient(timeout time.Duration) *http.Client {
 	transport := &http.Transport{
 		Proxy: func(req *http.Request) (*url.URL, error) {
@@ -47,7 +49,6 @@ func httpClient(timeout time.Duration) *http.Client {
 	return &http.Client{Timeout: timeout, Transport: transport}
 }
 
-// proxyFromSystem 读取 Windows 系统代理设置（仅 windows 生效）
 func proxyFromSystem() *url.URL {
 	if runtime.GOOS != "windows" {
 		return nil
@@ -89,8 +90,43 @@ type githubRelease struct {
 	HTMLURL string `json:"html_url"`
 }
 
+func loadVersion() string {
+	versionOnce.Do(func() {
+		// 依次尝试：exe 同目录 → 当前工作目录
+		paths := []string{}
+		if exe, err := os.Executable(); err == nil {
+			paths = append(paths, filepath.Join(filepath.Dir(exe), "version.json"))
+		}
+		if wd, err := os.Getwd(); err == nil {
+			paths = append(paths, filepath.Join(wd, "version.json"))
+		}
+
+		var data []byte
+		for _, p := range paths {
+			d, err := os.ReadFile(p)
+			if err == nil {
+				data = d
+				break
+			}
+		}
+		if data == nil {
+			versionVal = defaultVersion
+			return
+		}
+		var cfg struct {
+			Version string `json:"version"`
+		}
+		if err := json.Unmarshal(data, &cfg); err != nil || cfg.Version == "" {
+			versionVal = defaultVersion
+			return
+		}
+		versionVal = "v" + strings.TrimLeft(cfg.Version, "vV")
+	})
+	return versionVal
+}
+
 func Display() string {
-	return Version
+	return loadVersion()
 }
 
 // CheckUpdateResult 检查更新返回结果
@@ -125,7 +161,7 @@ func checkUpdateInternal() *CheckUpdateResult {
 	}
 
 	remote = normalizeVersion(remote)
-	local := normalizeVersion(RemoteVersion{Version: Version})
+	local := normalizeVersion(RemoteVersion{Version: Display()})
 
 	if remote.Version == local.Version {
 		return &CheckUpdateResult{

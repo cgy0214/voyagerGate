@@ -142,6 +142,9 @@ export namespace model {
 	    addr: string;
 	    ns?: string;
 	    group?: string;
+	    nacosVersion?: string;
+	    nacosUser?: string;
+	    nacosPass?: string;
 	    user?: string;
 	    pass?: string;
 	    dc?: string;
@@ -158,6 +161,9 @@ export namespace model {
 	        this.addr = source["addr"];
 	        this.ns = source["ns"];
 	        this.group = source["group"];
+	        this.nacosVersion = source["nacosVersion"];
+	        this.nacosUser = source["nacosUser"];
+	        this.nacosPass = source["nacosPass"];
 	        this.user = source["user"];
 	        this.pass = source["pass"];
 	        this.dc = source["dc"];
