@@ -167,5 +167,3 @@ wails build    # 构建生产包
 ## 许可证
 
 [MIT](LICENSE)
-
-作者：rabbit boy_0214@sina.com
