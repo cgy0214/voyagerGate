@@ -166,4 +166,3 @@ Open source isn't easy — give it a ⭐ if you find it useful!
 
 [MIT](LICENSE)
 
-Author: rabbit boy_0214@sina.com
