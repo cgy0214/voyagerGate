@@ -1,5 +1,5 @@
 {
   "version": "1.0.3",
   "download": "https://github.com/cgy0214/voyagerGate/releases/latest",
-  "note":"v1.0.3\n1.新增批量去前缀：一键为所有服务路由开启去前缀\n2.托盘优化：点关闭隐藏到托盘、防重复启动、修复托盘卡死"
+  "note":"v1.0.3\n1.修复了部分bug\n2.优化了部分功能"
 }
