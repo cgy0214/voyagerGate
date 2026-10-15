@@ -2,9 +2,7 @@ package tray
 
 import (
 	"context"
-	"syscall"
-	"time"
-	"unsafe"
+	"runtime"
 
 	"github.com/getlantern/systray"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -12,31 +10,18 @@ import (
 	"voyagergate/internal/version"
 )
 
-var (
-	trayCtx     context.Context
-	origWndProc uintptr
-
-	user32             = syscall.NewLazyDLL("user32.dll")
-	pFindWindowW       = user32.NewProc("FindWindowW")
-	pSetWindowLongPtrW = user32.NewProc("SetWindowLongPtrW")
-	pCallWindowProcW   = user32.NewProc("CallWindowProcW")
-	pShowWindow        = user32.NewProc("ShowWindow")
-)
-
-const (
-	_SC_MINIMIZE   = 0xF020
-	_SW_HIDE       = 0
-	_GWL_WNDPROC   = -4
-	_WM_SYSCOMMAND = 0x0112
-)
+var trayCtx context.Context
 
 func StartTray(c context.Context, iconData []byte) {
 	trayCtx = c
 	go runSystray(iconData)
-	go hookMinimize()
 }
 
 func runSystray(iconData []byte) {
+	// systray 的 Windows 实现要求：创建托盘窗口和 GetMessage 消息泵必须在同一个
+	// OS 线程上执行。若不加锁，Go 调度器可能在两次 syscall 之间把本 goroutine
+	// 迁移到别的线程，托盘消息会永远收不到，表现为点击托盘无响应、菜单打不开。
+	runtime.LockOSThread()
 	systray.Run(func() {
 		if len(iconData) > 0 {
 			systray.SetIcon(iconData)
@@ -62,30 +47,4 @@ func runSystray(iconData []byte) {
 			}
 		}
 	}, func() {})
-}
-
-func hookMinimize() {
-	time.Sleep(500 * time.Millisecond)
-	title, _ := syscall.UTF16PtrFromString("VoyagerGate 渡桥")
-	hwnd, _, _ := pFindWindowW.Call(0, uintptr(unsafe.Pointer(title)))
-	if hwnd == 0 {
-		return
-	}
-	newProc := syscall.NewCallback(wndProc)
-	ret, _, _ := pSetWindowLongPtrW.Call(hwnd, ^uintptr(4-1), newProc)
-	if ret != 0 {
-		origWndProc = ret
-	}
-}
-
-func wndProc(hwnd uintptr, msg uint32, wParam, lParam uintptr) uintptr {
-	if msg == _WM_SYSCOMMAND && (wParam&0xFFF0) == _SC_MINIMIZE && origWndProc != 0 {
-		pShowWindow.Call(hwnd, _SW_HIDE)
-		return 0
-	}
-	if origWndProc != 0 {
-		r, _, _ := pCallWindowProcW.Call(origWndProc, hwnd, uintptr(msg), wParam, lParam)
-		return r
-	}
-	return 0
 }

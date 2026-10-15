@@ -1285,6 +1285,34 @@ func (c *Core) SetAllRules(svc string, on bool) error {
 	return nil
 }
 
+// StripAllPrefixes 批量对所有服务的全部规则开启"本地转发去前缀"：
+// 未设置前缀的规则按服务前缀补齐（服务无前缀时按 /服务名小写），已自定义前缀的规则保持不变。
+func (c *Core) StripAllPrefixes() error {
+	c.mu.Lock()
+	env := c.cur()
+	if env == nil {
+		c.mu.Unlock()
+		return fmt.Errorf("无可用环境")
+	}
+	for _, s := range env.Services {
+		prefix := s.Prefix
+		if prefix == "" {
+			prefix = "/" + strings.ToLower(s.Name)
+		}
+		for _, r := range env.RulesOf(s.Name) {
+			if r.StripPrefix == "" {
+				r.StripPrefix = prefix
+			}
+		}
+	}
+	c.mu.Unlock()
+
+	c.syncProxy()
+	c.persist()
+	c.emitSnapshot()
+	return nil
+}
+
 // DeleteRule 删除规则
 func (c *Core) DeleteRule(svc string, idx int) {
 	c.mu.Lock()

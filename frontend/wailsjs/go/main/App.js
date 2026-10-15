@@ -178,6 +178,10 @@ export function StopProxy() {
   return window['go']['main']['App']['StopProxy']();
 }
 
+export function StripAllPrefixes() {
+  return window['go']['main']['App']['StripAllPrefixes']();
+}
+
 export function SwitchEnvironment(arg1) {
   return window['go']['main']['App']['SwitchEnvironment'](arg1);
 }

@@ -77,6 +77,8 @@ export default {
     addSvc: 'Add service',
     enableAll: 'Enable all services',
     disableAll: 'Disable all services',
+    stripAll: 'Strip all prefixes',
+    stripAllDone: 'Strip prefix enabled for all services',
     delManual: 'Delete manual services',
     fromRegistry: 'From registry',
     manual: 'Manual',

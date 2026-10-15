@@ -37,6 +37,10 @@ async function setAll(on) {
   await run(() => App.SetAllServices(on), t('svclist.setAll', { state: on ? t('common.enabled') : t('common.disabled') }))
 }
 
+async function stripAll() {
+  await run(() => App.StripAllPrefixes(), t('svclist.stripAllDone'))
+}
+
 function askDeleteManual() {
   const n = (state.current?.services || []).filter(s => s.src === 'man').length
   if (!n) { toast(t('svclist.noManual'), 'err'); return }
@@ -61,6 +65,9 @@ async function doDeleteManual() {
       </span>
       <span class="head-btn" :title="t('svclist.disableAll')" @click="setAll(false)">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+      </span>
+      <span class="head-btn" :title="t('svclist.stripAll')" @click="stripAll">
+        <svg viewBox="0 0 24 24"><path d="M4 10h12"/><path d="M4 15h7"/><line x1="15" y1="4" x2="9" y2="20"/></svg>
       </span>
       <span class="head-btn del" :title="t('svclist.delManual')" @click="askDeleteManual">
         <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>

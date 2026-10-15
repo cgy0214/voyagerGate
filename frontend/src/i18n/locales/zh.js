@@ -77,6 +77,8 @@ export default {
     addSvc: '添加服务',
     enableAll: '批量启用全部服务',
     disableAll: '批量禁用全部服务',
+    stripAll: '批量去前缀',
+    stripAllDone: '已为全部服务开启去前缀',
     delManual: '删除手动服务',
     fromRegistry: '注册中心拉取',
     manual: '手动添加',

@@ -93,6 +93,8 @@ export function Startup(arg1:context.Context):Promise<void>;
 
 export function StopProxy():Promise<void>;
 
+export function StripAllPrefixes():Promise<void>;
+
 export function SwitchEnvironment(arg1:string):Promise<void>;
 
 export function ToggleRule(arg1:string,arg2:number):Promise<void>;
